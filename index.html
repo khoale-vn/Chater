@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat P2P với Firebase</title>
-    <!-- Sử dụng Tailwind CSS để giao diện đẹp hơn -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom scrollbar for better appearance */
@@ -33,6 +32,7 @@
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+            white-space: nowrap; /* Prevent text from wrapping */
         }
         .message-box.show {
             opacity: 1;
@@ -42,33 +42,27 @@
 <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-2xl flex flex-col h-[90vh] bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
-        <!-- Header -->
         <header class="bg-gray-700 p-4 shadow-md z-10">
             <h1 class="text-xl font-bold text-center">Ứng dụng Chat P2P</h1>
             <p class="text-xs text-center text-gray-400 mt-1">
                 ID của bạn: <span id="userIdDisplay" class="font-mono bg-gray-600 px-2 py-1 rounded">Đang tải...</span>
             </p>
-            <!-- Phần nhập nickname -->
             <div class="mt-3 flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-2">
                 <input type="text" id="nicknameInput" placeholder="Nhập biệt danh của bạn"
-                       class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 w-full sm:max-w-[200px]"
-                       maxlength="20" /> <!-- Giới hạn độ dài nickname -->
-                <button id="saveNicknameButton"
-                        class="px-3 py-2 bg-green-600 rounded-md text-sm font-semibold hover:bg-green-700 active:scale-95 transition w-full sm:w-auto">
-                    Lưu Nickname
+                       class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 w-full sm:max-w-[200px] disabled:opacity-50 disabled:cursor-not-allowed"
+                       maxlength="20" disabled /> <button id="saveNicknameButton"
+                        class="px-3 py-2 bg-green-600 rounded-md text-sm font-semibold hover:bg-green-700 active:scale-95 transition w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled> Lưu Nickname
                 </button>
             </div>
         </header>
 
-        <!-- Vùng chứa tin nhắn -->
         <main id="messagesContainer" class="flex-1 p-4 overflow-y-auto space-y-4">
-            <!-- Tin nhắn sẽ được thêm vào đây bằng JavaScript -->
             <div id="loadingMessages" class="flex justify-center items-center h-full">
                 <p class="text-gray-500">Đang tải tin nhắn...</p>
             </div>
         </main>
 
-        <!-- Form gửi tin nhắn -->
         <footer class="p-4 bg-gray-700">
             <form id="messageForm" class="flex items-center space-x-3">
                 <input
@@ -76,12 +70,14 @@
                     id="messageInput"
                     placeholder="Nhập tin nhắn của bạn..."
                     autocomplete="off"
-                    class="flex-1 p-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    class="flex-1 p-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
                 />
                 <button
                     type="submit"
                     id="sendButton"
-                    class="px-6 py-3 bg-blue-600 rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 transition-transform transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="px-6 py-3 bg-blue-600 rounded-lg font-semibold hover:bg-blue-700 active:scale-95 transition-transform transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
                 >
                     Gửi
                 </button>
@@ -89,10 +85,8 @@
         </footer>
     </div>
 
-    <!-- Custom Message Box for error/success messages -->
     <div id="customMessageBox" class="message-box hidden"></div>
 
-    <!-- Script JavaScript để xử lý logic -->
     <script type="module">
         // Import các hàm cần thiết từ Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -101,8 +95,6 @@
 
         // --- 1. CẤU HÌNH VÀ KHỞI TẠO FIREBASE ---
         
-        // Môi trường Canvas sẽ tự động cung cấp các biến này.
-        // Khi triển khai trên GitHub Pages, bạn cần thay thế chúng bằng giá trị thật từ dự án Firebase của bạn.
         const firebaseConfig = typeof __firebase_config !== 'undefined'
             ? JSON.parse(__firebase_config)
             : {
@@ -116,10 +108,8 @@
                 measurementId: "G-0NJBEDPT72"
             };
             
-        // Sử dụng một ID mặc định nếu không chạy trong môi trường Canvas
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'p2p-chat-app-default';
 
-        // Khởi tạo ứng dụng Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -129,14 +119,16 @@
         const messagesContainer = document.getElementById('messagesContainer');
         const messageForm = document.getElementById('messageForm');
         const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton'); 
         const loadingMessagesDiv = document.getElementById('loadingMessages');
         const nicknameInput = document.getElementById('nicknameInput');
         const saveNicknameButton = document.getElementById('saveNicknameButton');
         const customMessageBox = document.getElementById('customMessageBox');
 
         let currentUser = null;
-        let messagesUnsubscribe = null; // Biến để giữ hàm hủy listener tin nhắn
-        let userProfilesUnsubscribe = null; // Biến để giữ hàm hủy listener user profiles
+        let messagesUnsubscribe = null; 
+        let userProfileDocUnsubscribe = null; // Listener cho profile của người dùng hiện tại (document)
+        let userProfilesColUnsubscribe = null; // Listener cho toàn bộ collection profiles (collection)
         const userNicknamesMap = new Map(); // Map để lưu trữ UID -> Nickname
 
         // Hàm hiển thị thông báo tùy chỉnh
@@ -145,37 +137,52 @@
             customMessageBox.classList.remove('hidden');
             customMessageBox.classList.remove('bg-red-500', 'bg-green-600');
             customMessageBox.classList.add(isError ? 'bg-red-500' : 'bg-green-600');
-            customMessageBox.classList.add('show'); // Trigger CSS transition
+            customMessageBox.classList.add('show'); 
 
             setTimeout(() => {
                 customMessageBox.classList.remove('show');
                 setTimeout(() => {
                     customMessageBox.classList.add('hidden');
-                }, 300); // Allow time for fade out transition
-            }, 3000); // Message disappears after 3 seconds
+                }, 300); 
+            }, 3000); 
         }
 
-        // --- 2. XÁC THỰC NGƯỜI DÙNG ---
+        // --- 2. XÁC THỰC NGƯỜNG DÙNG ---
 
-        // Theo dõi trạng thái đăng nhập
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Người dùng đã đăng nhập
                 console.log("User is signed in with UID:", user.uid);
                 currentUser = user;
-                userIdDisplay.textContent = user.uid; // Hiển thị ID người dùng đầy đủ
+                userIdDisplay.textContent = user.uid; 
+
+                // Bật các input và nút sau khi xác thực thành công
+                nicknameInput.disabled = false;
+                saveNicknameButton.disabled = false;
+                messageInput.disabled = false;
+                sendButton.disabled = false;
                 
-                // Bắt đầu lắng nghe thông tin profile của người dùng này
+                // Bắt đầu lắng nghe thông tin profile của người dùng này (document listener)
                 listenForCurrentUserProfile(user.uid);
-                // Bắt đầu lắng nghe tin nhắn
-                listenForMessages();
-                // Bắt đầu lắng nghe tất cả user profiles
+                // Bắt đầu lắng nghe tất cả user profiles (collection listener)
                 listenForUserProfiles();
+                // Bắt đầu lắng nghe tin nhắn (messages listener)
+                listenForMessages();
 
             } else {
-                // Người dùng chưa đăng nhập, tiến hành đăng nhập ẩn danh
                 console.log("No user signed in. Attempting anonymous sign-in...");
                 currentUser = null;
+                // Vô hiệu hóa các input và nút nếu chưa đăng nhập
+                nicknameInput.disabled = true;
+                saveNicknameButton.disabled = true;
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+                
+                // Hủy các listener nếu người dùng đăng xuất
+                if (messagesUnsubscribe) messagesUnsubscribe();
+                if (userProfileDocUnsubscribe) userProfileDocUnsubscribe();
+                if (userProfilesColUnsubscribe) userProfilesColUnsubscribe();
+                userNicknamesMap.clear(); // Xóa map nicknames
+
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -192,8 +199,8 @@
 
         // --- 3. LƯU VÀ LẤY NICKNAME ---
 
-        // Lắng nghe sự kiện click nút "Lưu Nickname"
         saveNicknameButton.addEventListener('click', async () => {
+            console.log("Save Nickname button clicked."); 
             if (!currentUser) {
                 showMessage('Bạn cần đăng nhập để lưu biệt danh.', true);
                 return;
@@ -220,22 +227,26 @@
          * @param {string} uid - UID của người dùng hiện tại
          */
         function listenForCurrentUserProfile(uid) {
-            if (userProfilesUnsubscribe) {
-                userProfilesUnsubscribe(); // Hủy listener cũ
+            if (userProfileDocUnsubscribe) {
+                userProfileDocUnsubscribe(); // Hủy listener cũ cho document
             }
             const userProfileDocRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
-            userProfilesUnsubscribe = onSnapshot(userProfileDocRef, (docSnapshot) => {
+            userProfileDocUnsubscribe = onSnapshot(userProfileDocRef, (docSnapshot) => {
+                console.log(`CurrentUserProfile listener: Data received for UID ${uid}.`);
                 if (docSnapshot.exists()) {
                     const profileData = docSnapshot.data();
                     if (profileData && profileData.nickname) {
                         nicknameInput.value = profileData.nickname;
                         userNicknamesMap.set(uid, profileData.nickname); // Cập nhật map
+                        console.log(`CurrentUser Nickname updated: ${profileData.nickname}`);
                     }
                 } else {
                     nicknameInput.value = ''; // Xóa nickname nếu không tìm thấy
+                    userNicknamesMap.delete(uid); // Xóa khỏi map
+                    console.log(`CurrentUser Profile does not exist for UID: ${uid}`);
                 }
             }, (error) => {
-                console.error("Lỗi khi đọc profile người dùng:", error);
+                console.error("Lỗi khi đọc profile người dùng hiện tại:", error);
                 showMessage('Không thể tải biệt danh của bạn.', true);
             });
         }
@@ -244,34 +255,40 @@
          * Lắng nghe tất cả user profiles để xây dựng nickname map
          */
         function listenForUserProfiles() {
-            // Không cần hủy listener nếu nó đã được xử lý bởi listenForCurrentUserProfile
-            // Thay vào đó, chúng ta sẽ quản lý userNicknamesMap từ đây.
+            if (userProfilesColUnsubscribe) {
+                userProfilesColUnsubscribe(); // Hủy listener cũ cho collection
+            }
             const userProfilesColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
-            onSnapshot(userProfilesColRef, (snapshot) => {
+            userProfilesColUnsubscribe = onSnapshot(userProfilesColRef, (snapshot) => {
+                console.log(`UserProfiles collection listener: Received ${snapshot.docs.length} profiles.`);
                 snapshot.docChanges().forEach(change => {
+                    const uid = change.doc.id;
+                    const nickname = change.doc.data().nickname;
+                    
                     if (change.type === "added" || change.type === "modified") {
-                        const uid = change.doc.id;
-                        const nickname = change.doc.data().nickname;
                         if (nickname) {
                             userNicknamesMap.set(uid, nickname);
-                            // Nếu đây là người dùng hiện tại và nickname thay đổi, cập nhật input
-                            if (uid === currentUser?.uid) {
-                                nicknameInput.value = nickname;
-                            }
+                            console.log(`Nickname added/modified: UID=${uid}, Nickname=${nickname}`);
+                        } else {
+                            userNicknamesMap.delete(uid); // Xóa nếu nickname bị rỗng
+                            console.log(`Nickname removed (empty) for UID=${uid}`);
                         }
                     } else if (change.type === "removed") {
-                        userNicknamesMap.delete(change.doc.id);
+                        userNicknamesMap.delete(uid);
+                        console.log(`Nickname removed for UID=${uid}`);
                     }
                 });
-                // Sau khi map được cập nhật, render lại tin nhắn để hiển thị nickname mới
-                // (Chỉ gọi renderMessages nếu có tin nhắn để tránh lỗi khi container rỗng)
-                if (messagesContainer.children.length > 0 && messagesContainer.children[0].id !== 'loadingMessages') {
-                   // Để tránh lỗi nếu messagesContainer rỗng hoặc chỉ có loading element.
-                   // Có thể gọi renderMessages với mảng tin nhắn hiện tại nếu cần thiết
-                   // nhưng tốt nhất là onSnapshot messages sẽ tự động kích hoạt render.
-                }
+                // Sau khi map nicknames được cập nhật, render lại tin nhắn để phản ánh thay đổi
+                // Chúng ta sẽ gọi renderMessages từ listener tin nhắn chính để đảm bảo
+                // dữ liệu tin nhắn và nicknames được đồng bộ.
+                // Tuy nhiên, nếu có thay đổi nickname mà không có tin nhắn mới,
+                // bạn có thể muốn kích hoạt render lại ở đây.
+                // Một cách đơn giản là gọi lại renderMessages với dữ liệu tin nhắn hiện có.
+                // Tuy nhiên, logic này sẽ tốt hơn nếu messages cũng được lưu vào một biến toàn cục.
+                // Hiện tại, chúng ta sẽ dựa vào listener tin nhắn để kích hoạt render.
             }, (error) => {
-                console.error("Lỗi khi lắng nghe user profiles:", error);
+                console.error("Lỗi khi lắng nghe user profiles collection:", error);
+                // showMessage('Không thể tải biệt danh của người dùng.', true); // Có thể ẩn thông báo này để không làm phiền người dùng
             });
         }
 
@@ -282,26 +299,21 @@
          * Lắng nghe các tin nhắn mới từ Firestore trong thời gian thực
          */
         function listenForMessages() {
-            // Hủy listener cũ nếu có để tránh chạy nhiều lần
             if (messagesUnsubscribe) {
                 messagesUnsubscribe();
             }
             
-            // Đường dẫn đến collection chứa tin nhắn, tuân thủ quy tắc bảo mật
             const messagesColPath = `artifacts/${appId}/public/data/messages`;
             const messagesRef = collection(db, messagesColPath);
-            // Lưu ý: Không sử dụng orderBy() ở đây để tránh lỗi index missing.
-            // Sắp xếp dữ liệu sẽ được thực hiện phía client.
             const q = query(messagesRef); 
 
-            messagesContainer.innerHTML = ''; // Xóa tin nhắn cũ trước khi tải lại
-            loadingMessagesDiv.classList.remove('hidden'); // Hiện thị lại thông báo tải
+            messagesContainer.innerHTML = ''; 
+            loadingMessagesDiv.classList.remove('hidden'); 
 
             messagesUnsubscribe = onSnapshot(q, (snapshot) => {
-                console.log(`Received ${snapshot.docs.length} messages.`);
-                loadingMessagesDiv.classList.add('hidden'); // Ẩn thông báo tải khi có dữ liệu
+                console.log(`Messages listener: Received ${snapshot.docs.length} messages.`);
+                loadingMessagesDiv.classList.add('hidden'); 
                 
-                // Lấy tất cả document và sắp xếp theo timestamp phía client
                 const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 messages.sort((a, b) => {
                     const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
@@ -313,7 +325,7 @@
 
             }, (error) => {
                 console.error("Error fetching messages: ", error);
-                loadingMessagesDiv.classList.add('hidden'); // Ẩn thông báo tải ngay cả khi có lỗi
+                loadingMessagesDiv.classList.add('hidden'); 
                 showMessage('Không thể tải tin nhắn. Vui lòng thử lại.', true);
             });
         }
@@ -323,7 +335,7 @@
          * @param {Array} messages - Mảng các đối tượng tin nhắn đã được sắp xếp
          */
         function renderMessages(messages) {
-            messagesContainer.innerHTML = ''; // Clear existing messages
+            messagesContainer.innerHTML = ''; 
             
             if (messages.length === 0) {
                 messagesContainer.innerHTML = '<p class="text-gray-500 text-center">Chưa có tin nhắn nào. Hãy là người đầu tiên!</p>';
@@ -333,62 +345,51 @@
             messages.forEach(msg => {
                 const isMyMessage = msg.userId === currentUser?.uid;
 
-                // Create a wrapper div for alignment
                 const messageWrapper = document.createElement('div');
-                messageWrapper.classList.add('flex', 'w-full'); // Make it a flex container taking full width
+                messageWrapper.classList.add('flex', 'w-full'); 
 
-                // Add alignment classes based on sender
                 if (isMyMessage) {
-                    messageWrapper.classList.add('justify-end'); // Align to the right
+                    messageWrapper.classList.add('justify-end'); 
                 } else {
-                    messageWrapper.classList.add('justify-start'); // Align to the left
+                    messageWrapper.classList.add('justify-start'); 
                 }
 
-                // Create the message bubble div
                 const messageBubble = document.createElement('div');
                 messageBubble.classList.add(
                     'flex', 'flex-col', 'max-w-[75%]', 'p-3', 'rounded-xl', 'shadow-md', 'break-words'
                 );
                 
-                // Add specific colors and border-radius for the bubble
                 if (isMyMessage) {
-                    messageBubble.classList.add('bg-blue-600', 'rounded-br-none'); // Blue for my messages, flatten bottom-right corner
+                    messageBubble.classList.add('bg-blue-600', 'rounded-br-none'); 
                 } else {
-                    messageBubble.classList.add('bg-gray-600', 'rounded-bl-none'); // Gray for other messages, flatten bottom-left corner
+                    messageBubble.classList.add('bg-gray-600', 'rounded-bl-none'); 
                 }
 
-                // Nội dung tin nhắn
                 const textElement = document.createElement('p');
                 textElement.textContent = msg.text;
-                textElement.classList.add('text-white', 'text-sm'); // Added text-sm for smaller font
+                textElement.classList.add('text-white', 'text-sm'); 
                 
-                // Tên hiển thị (Nickname hoặc UID đầy đủ nếu không có nickname)
+                // Lấy nickname từ map, nếu không có thì dùng UID
                 const senderDisplayName = userNicknamesMap.get(msg.userId) || msg.userId;
+                console.log(`Rendering message from UID: ${msg.userId}, Display Name: ${senderDisplayName}`); // Log để kiểm tra
 
                 const senderIdElement = document.createElement('span');
                 senderIdElement.classList.add('text-xs', 'text-gray-300', 'font-semibold', 'mb-1', 'opacity-90');
                 senderIdElement.textContent = isMyMessage ? 'Bạn' : senderDisplayName;
-                // Thêm tooltip để hiển thị UID đầy đủ khi rê chuột vào Nickname
                 senderIdElement.title = isMyMessage ? 'Đây là tin nhắn của bạn.' : `ID đầy đủ: ${msg.userId}`;
                 messageBubble.appendChild(senderIdElement);
                 
-                // Thời gian gửi
                 const timeElement = document.createElement('span');
-                timeElement.classList.add('text-xs', 'text-gray-300', 'mt-1', 'opacity-70', 'self-end'); // Align time to the end of the bubble
+                timeElement.classList.add('text-xs', 'text-gray-300', 'mt-1', 'opacity-70', 'self-end'); 
                 timeElement.textContent = msg.timestamp ? new Date(msg.timestamp.toMillis()).toLocaleTimeString('vi-VN') : 'Đang gửi...';
 
-                // Add content to the message bubble
                 messageBubble.appendChild(textElement);
-                messageBubble.appendChild(timeElement); // Add time after text
+                messageBubble.appendChild(timeElement); 
 
-                // Add the bubble to the wrapper
                 messageWrapper.appendChild(messageBubble);
-                
-                // Add the wrapper to the messages container
                 messagesContainer.appendChild(messageWrapper);
             });
             
-            // Tự động cuộn xuống tin nhắn mới nhất
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
@@ -396,7 +397,7 @@
          * Xử lý việc gửi tin nhắn
          */
         messageForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Ngăn form tải lại trang
+            e.preventDefault(); 
             
             const messageText = messageInput.value.trim();
 
@@ -406,11 +407,11 @@
                     await addDoc(collection(db, messagesColPath), {
                         text: messageText,
                         userId: currentUser.uid,
-                        timestamp: serverTimestamp() // Sử dụng timestamp của server để đồng bộ
+                        timestamp: serverTimestamp() 
                     });
                     
                     console.log("Message sent successfully!");
-                    messageInput.value = ''; // Xóa nội dung trong input
+                    messageInput.value = ''; 
                 } catch (error) {
                     console.error("Error sending message: ", error);
                     showMessage('Không thể gửi tin nhắn. Vui lòng thử lại.', true);
