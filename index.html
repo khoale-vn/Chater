@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat P2P với Firebase</title>
+    <!-- Sử dụng Tailwind CSS để giao diện đẹp hơn -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Tùy chỉnh thanh cuộn cho đẹp hơn */
+        #messagesContainer::-webkit-scrollbar {
+            width: 8px;
+        }
+        #messagesContainer::-webkit-scrollbar-track {
+            background: #2d3748; /* bg-gray-800 */
+        }
+        #messagesContainer::-webkit-scrollbar-thumb {
+            background-color: #4a5568; /* bg-gray-700 */
+            border-radius: 10px;
+            border: 2px solid #2d3748; /* bg-gray-800 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl flex flex-col h-[90vh] bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
+        <!-- Header -->
+        <header class="bg-gray-700 p-4 shadow-md z-10">
+            <h1 class="text-xl font-bold text-center">Ứng dụng Chat P2P</h1>
+            <p class="text-xs text-center text-gray-400 mt-1">
+                ID của bạn: <span id="userIdDisplay" class="font-mono bg-gray-600 px-2 py-1 rounded">Đang tải...</span>
+            </p>
+        </header>
+
+        <!-- Vùng chứa tin nhắn -->
+        <main id="messagesContainer" class="flex-1 p-4 overflow-y-auto space-y-4">
+            <!-- Tin nhắn sẽ được thêm vào đây bằng JavaScript -->
+            <div class="flex justify-center items-center h-full">
+                <p class="text-gray-500">Đang tải tin nhắn...</p>
+            </div>
+        </main>
+
+        <!-- Form gửi tin nhắn -->
+        <footer class="p-4 bg-gray-700">
+            <form id="messageForm" class="flex items-center space-x-3">
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Nhập tin nhắn của bạn..."
+                    autocomplete="off"
+                    class="flex-1 p-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                />
+                <button
+                    type="submit"
+                    id="sendButton"
+                    class="px-6 py-3 bg-blue-600 rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800 transition-transform transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    Gửi
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <!-- Script JavaScript để xử lý logic -->
+    <script type="module">
+        // Import các hàm cần thiết từ Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. CẤU HÌNH VÀ KHỞI TẠO FIREBASE ---
+        
+        // Môi trường Canvas sẽ tự động cung cấp các biến này.
+        // Khi triển khai trên GitHub Pages, bạn cần thay thế chúng bằng giá trị thật từ dự án Firebase của bạn.
+        const firebaseConfig = typeof __firebase_config !== 'undefined'
+            ? JSON.parse(__firebase_config)
+            : {
+                // DÁN firebaseConfig CỦA BẠN VÀO ĐÂY NẾU TRIỂN KHAI BÊN NGOÀI
+                apiKey: "AIzaSyCxMrko3SkZ4xH-7XgB-_PPAzyflj9qDis",
+                authDomain: "chater-c47a3.firebaseapp.com",
+               	projectId: "chater-c47a3",
+                storageBucket: "chater-c47a3.firebasestorage.app",
+                messagingSenderId: "625525360528",
+                appId: "1:625525360528:web:86ccfbe6f0d22058ad9515",
+			  	measurementId: "G-0NJBEDPT72"
+            };
+            
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'p2p-chat-app';
+
+        // Khởi tạo ứng dụng Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // Bật log để dễ dàng gỡ lỗi
+        setLogLevel('debug');
+
+        // Lấy các element từ DOM
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        
+        let currentUser = null;
+        let messagesUnsubscribe = null; // Biến để giữ hàm hủy listener
+
+        // --- 2. XÁC THỰC NGƯỜI DÙNG ---
+
+        // Theo dõi trạng thái đăng nhập
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // Người dùng đã đăng nhập
+                console.log("User is signed in with UID:", user.uid);
+                currentUser = user;
+                userIdDisplay.textContent = user.uid; // Hiển thị ID người dùng
+                
+                // Sau khi có người dùng, bắt đầu lắng nghe tin nhắn
+                listenForMessages();
+
+            } else {
+                // Người dùng chưa đăng nhập, tiến hành đăng nhập ẩn danh
+                console.log("No user signed in. Attempting anonymous sign-in...");
+                currentUser = null;
+                // Nếu đang trong môi trường có token sẵn, dùng nó. Nếu không, đăng nhập ẩn danh.
+                 try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Error during sign-in:", error);
+                    userIdDisplay.textContent = "Lỗi đăng nhập";
+                }
+            }
+        });
+
+        // --- 3. GỬI VÀ NHẬN TIN NHẮN ---
+
+        /**
+         * Lắng nghe các tin nhắn mới từ Firestore trong thời gian thực
+         */
+        function listenForMessages() {
+            // Hủy listener cũ nếu có để tránh chạy nhiều lần
+            if (messagesUnsubscribe) {
+                messagesUnsubscribe();
+            }
+            
+            // Đường dẫn đến collection chứa tin nhắn, tuân thủ quy tắc bảo mật
+            const messagesColPath = `artifacts/${appId}/public/data/messages`;
+            const messagesRef = collection(db, messagesColPath);
+            const q = query(messagesRef);
+
+            messagesContainer.innerHTML = ''; // Xóa tin nhắn cũ trước khi tải lại
+
+            messagesUnsubscribe = onSnapshot(q, (snapshot) => {
+                console.log(`Received ${snapshot.docs.length} messages.`);
+                
+                // Lấy tất cả document và sắp xếp theo timestamp phía client
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                messages.sort((a, b) => {
+                    const timeA = a.timestamp ? a.timestamp.toMillis() : 0;
+                    const timeB = b.timestamp ? b.timestamp.toMillis() : 0;
+                    return timeA - timeB;
+                });
+                
+                renderMessages(messages);
+
+            }, (error) => {
+                console.error("Error fetching messages: ", error);
+                messagesContainer.innerHTML = '<p class="text-red-400 text-center">Không thể tải tin nhắn.</p>';
+            });
+        }
+        
+        /**
+         * Hiển thị tin nhắn lên giao diện
+         * @param {Array} messages - Mảng các đối tượng tin nhắn đã được sắp xếp
+         */
+        function renderMessages(messages) {
+            messagesContainer.innerHTML = ''; // Xóa các tin nhắn hiện tại
+            
+            if (messages.length === 0) {
+                 messagesContainer.innerHTML = '<p class="text-gray-500 text-center">Chưa có tin nhắn nào. Hãy là người đầu tiên!</p>';
+                 return;
+            }
+            
+            messages.forEach(msg => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('flex', 'flex-col', 'max-w-[75%]', 'p-3', 'rounded-xl');
+                
+                const isMyMessage = msg.userId === currentUser?.uid;
+
+                if (isMyMessage) {
+                    // Tin nhắn của tôi: căn phải, màu xanh
+                    messageElement.classList.add('bg-blue-600', 'self-end', 'items-end');
+                } else {
+                    // Tin nhắn của người khác: căn trái, màu xám
+                    messageElement.classList.add('bg-gray-600', 'self-start', 'items-start');
+                }
+
+                // Nội dung tin nhắn
+                const textElement = document.createElement('p');
+                textElement.textContent = msg.text;
+                textElement.classList.add('text-white');
+                
+                // Thời gian gửi
+                const timeElement = document.createElement('span');
+                timeElement.classList.add('text-xs', 'text-gray-300', 'mt-1');
+                timeElement.textContent = msg.timestamp ? new Date(msg.timestamp.toMillis()).toLocaleTimeString('vi-VN') : 'Đang gửi...';
+
+                messageElement.appendChild(textElement);
+                messageElement.appendChild(timeElement);
+                
+                messagesContainer.appendChild(messageElement);
+            });
+            
+            // Tự động cuộn xuống tin nhắn mới nhất
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        /**
+         * Xử lý việc gửi tin nhắn
+         */
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Ngăn form tải lại trang
+            
+            const messageText = messageInput.value.trim();
+
+            if (messageText && currentUser) {
+                const messagesColPath = `artifacts/${appId}/public/data/messages`;
+                try {
+                    await addDoc(collection(db, messagesColPath), {
+                        text: messageText,
+                        userId: currentUser.uid,
+                        timestamp: serverTimestamp() // Sử dụng timestamp của server để đồng bộ
+                    });
+                    
+                    console.log("Message sent successfully!");
+                    messageInput.value = ''; // Xóa nội dung trong input
+                } catch (error) {
+                    console.error("Error sending message: ", error);
+                    alert("Không thể gửi tin nhắn. Vui lòng thử lại.");
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
