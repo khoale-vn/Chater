@@ -7,7 +7,7 @@
     <!-- Sử dụng Tailwind CSS để giao diện đẹp hơn -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom scrollbar for better appearance */
+        /* Tùy chỉnh thanh cuộn cho đẹp hơn */
         #messagesContainer::-webkit-scrollbar {
             width: 8px;
         }
@@ -35,7 +35,7 @@
         <!-- Vùng chứa tin nhắn -->
         <main id="messagesContainer" class="flex-1 p-4 overflow-y-auto space-y-4">
             <!-- Tin nhắn sẽ được thêm vào đây bằng JavaScript -->
-            <div id="loadingMessages" class="flex justify-center items-center h-full">
+            <div class="flex justify-center items-center h-full">
                 <p class="text-gray-500">Đang tải tin nhắn...</p>
             </div>
         </main>
@@ -78,15 +78,14 @@
                 // DÁN firebaseConfig CỦA BẠN VÀO ĐÂY NẾU TRIỂN KHAI BÊN NGOÀI
                 apiKey: "AIzaSyCxMrko3SkZ4xH-7XgB-_PPAzyflj9qDis",
                 authDomain: "chater-c47a3.firebaseapp.com",
-                projectId: "chater-c47a3",
+               	projectId: "chater-c47a3",
                 storageBucket: "chater-c47a3.firebasestorage.app",
                 messagingSenderId: "625525360528",
                 appId: "1:625525360528:web:86ccfbe6f0d22058ad9515",
-                measurementId: "G-0NJBEDPT72"
+			  	measurementId: "G-0NJBEDPT72"
             };
             
-        // Sử dụng một ID mặc định nếu không chạy trong môi trường Canvas
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'p2p-chat-app-default';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'p2p-chat-app';
 
         // Khởi tạo ứng dụng Firebase
         const app = initializeApp(firebaseConfig);
@@ -101,7 +100,6 @@
         const messagesContainer = document.getElementById('messagesContainer');
         const messageForm = document.getElementById('messageForm');
         const messageInput = document.getElementById('messageInput');
-        const loadingMessagesDiv = document.getElementById('loadingMessages');
         
         let currentUser = null;
         let messagesUnsubscribe = null; // Biến để giữ hàm hủy listener
@@ -123,7 +121,8 @@
                 // Người dùng chưa đăng nhập, tiến hành đăng nhập ẩn danh
                 console.log("No user signed in. Attempting anonymous sign-in...");
                 currentUser = null;
-                try {
+                // Nếu đang trong môi trường có token sẵn, dùng nó. Nếu không, đăng nhập ẩn danh.
+                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
@@ -132,7 +131,6 @@
                 } catch (error) {
                     console.error("Error during sign-in:", error);
                     userIdDisplay.textContent = "Lỗi đăng nhập";
-                    messagesContainer.innerHTML = '<p class="text-red-400 text-center">Lỗi xác thực. Vui lòng kiểm tra console hoặc cấu hình Firebase.</p>';
                 }
             }
         });
@@ -151,16 +149,12 @@
             // Đường dẫn đến collection chứa tin nhắn, tuân thủ quy tắc bảo mật
             const messagesColPath = `artifacts/${appId}/public/data/messages`;
             const messagesRef = collection(db, messagesColPath);
-            // Lưu ý: Không sử dụng orderBy() ở đây để tránh lỗi index missing.
-            // Sắp xếp dữ liệu sẽ được thực hiện phía client.
-            const q = query(messagesRef); 
+            const q = query(messagesRef);
 
             messagesContainer.innerHTML = ''; // Xóa tin nhắn cũ trước khi tải lại
-            loadingMessagesDiv.classList.remove('hidden'); // Hiện thị lại thông báo tải
 
             messagesUnsubscribe = onSnapshot(q, (snapshot) => {
                 console.log(`Received ${snapshot.docs.length} messages.`);
-                loadingMessagesDiv.classList.add('hidden'); // Ẩn thông báo tải khi có dữ liệu
                 
                 // Lấy tất cả document và sắp xếp theo timestamp phía client
                 const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -174,8 +168,7 @@
 
             }, (error) => {
                 console.error("Error fetching messages: ", error);
-                loadingMessagesDiv.classList.add('hidden'); // Ẩn thông báo tải ngay cả khi có lỗi
-                messagesContainer.innerHTML = '<p class="text-red-400 text-center">Không thể tải tin nhắn. Vui lòng thử lại.</p>';
+                messagesContainer.innerHTML = '<p class="text-red-400 text-center">Không thể tải tin nhắn.</p>';
             });
         }
         
@@ -187,13 +180,13 @@
             messagesContainer.innerHTML = ''; // Xóa các tin nhắn hiện tại
             
             if (messages.length === 0) {
-                   messagesContainer.innerHTML = '<p class="text-gray-500 text-center">Chưa có tin nhắn nào. Hãy là người đầu tiên!</p>';
-                   return;
+                 messagesContainer.innerHTML = '<p class="text-gray-500 text-center">Chưa có tin nhắn nào. Hãy là người đầu tiên!</p>';
+                 return;
             }
             
             messages.forEach(msg => {
                 const messageElement = document.createElement('div');
-                messageElement.classList.add('flex', 'flex-col', 'max-w-[75%]', 'p-3', 'rounded-xl', 'shadow-md'); // Added shadow-md
+                messageElement.classList.add('flex', 'flex-col', 'max-w-[75%]', 'p-3', 'rounded-xl');
                 
                 const isMyMessage = msg.userId === currentUser?.uid;
 
@@ -210,17 +203,9 @@
                 textElement.textContent = msg.text;
                 textElement.classList.add('text-white');
                 
-                // User ID (cho tin nhắn của người khác)
-                if (!isMyMessage) {
-                    const senderIdElement = document.createElement('span');
-                    senderIdElement.classList.add('text-xs', 'text-gray-300', 'font-semibold', 'mb-1');
-                    senderIdElement.textContent = `Người gửi: ${msg.userId}`;
-                    messageElement.appendChild(senderIdElement);
-                }
-
                 // Thời gian gửi
                 const timeElement = document.createElement('span');
-                timeElement.classList.add('text-xs', 'text-gray-300', 'mt-1', 'opacity-80');
+                timeElement.classList.add('text-xs', 'text-gray-300', 'mt-1');
                 timeElement.textContent = msg.timestamp ? new Date(msg.timestamp.toMillis()).toLocaleTimeString('vi-VN') : 'Đang gửi...';
 
                 messageElement.appendChild(textElement);
@@ -254,15 +239,7 @@
                     messageInput.value = ''; // Xóa nội dung trong input
                 } catch (error) {
                     console.error("Error sending message: ", error);
-                    // Hiển thị thông báo lỗi thân thiện hơn trên UI thay vì alert
-                    const errorMessageDiv = document.createElement('div');
-                    errorMessageDiv.classList.add('text-red-400', 'text-sm', 'text-center', 'mt-2');
-                    errorMessageDiv.textContent = 'Không thể gửi tin nhắn. Vui lòng thử lại.';
-                    messagesContainer.appendChild(errorMessageDiv);
-                    // Tự động xóa thông báo lỗi sau vài giây
-                    setTimeout(() => {
-                        errorMessageDiv.remove();
-                    }, 5000);
+                    alert("Không thể gửi tin nhắn. Vui lòng thử lại.");
                 }
             }
         });
